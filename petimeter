@@ -166,6 +166,39 @@ def output_files(prefix):
 
     return (oh, dh)
 
+
+def get_gff_database(gff_filename):
+    '''
+    Open (if already available) or create a sqlite3 database for the GFF data.
+    Return a DB handle.
+    Exit with message on most (?) errors.
+    '''
+    gffDB = gff_filename + ".sqlite3"
+
+    if os.path.isfile(gffDB):   # Ooh, we already have the DB from a previous attempt. Probably.
+        if verbose:
+            sys.stderr.write(colored('Found pre-existing GFF database: ' + gffDB + '\n', 'green'))
+        try:
+            db = gffutils.FeatureDB(gffDB)
+        except:
+            sys.stderr.write(colored("Error: Something went wrong ('" + str(sys.exc_info()[0]) + "') when trying to open GFF database '" + gffDB + "'. Aborting.\n", 'red'))
+            exit(1)
+    else:                       # Let's create it from scratch.
+        if verbose:
+            sys.stderr.write('Creating GFF database "' + gffDB + '"\n')
+
+        try:
+            db = gffutils.create_db(args.gff_file, gffDB)
+        except ValueError:      # GFFUtils seems to return ValueError when it cannot find the file!
+            sys.stderr.write(colored("Error: Are you sure '" + args.gff_file + "' is a GFF file?\n"))
+            exit(4)
+        except Exception as e:
+            sys.stderr.write(colored("Error ('" + str(sys.exc_info()[0]) + "'): Could not create GFF database '" + gffDB + "'. Aborting.\n", 'red'))
+            sys.stderr.write(str(e)+'\n')
+            raise
+            exit(1)
+    return db    
+
 ############################################################################################################
 if __name__ == "__main__":
 
@@ -216,31 +249,7 @@ if __name__ == "__main__":
         sys.stderr.write('#cDNA in ' + args.cdna_file + ': ' + fname + '\n')
 
     # The gffutils require a SQLite3 database for its operations
-    gffDB = args.gff_file + ".sqlite3"
-
-    if os.path.isfile(gffDB):   # Ooh, we already have the DB from a previous attempt. Probably.
-        if verbose:
-            sys.stderr.write(colored('Found pre-existing GFF database: ' + gffDB + '\n', 'green'))
-        try:
-            db = gffutils.FeatureDB(gffDB)
-        except:
-            sys.stderr.write(colored("Error: Something went wrong ('" + str(sys.exc_info()[0]) + "') when trying to open GFF database '" + gffDB + "'. Aborting.\n", 'red'))
-            exit(1)
-
-    else:                       # Let's create it from scratch.
-        if verbose:
-            sys.stderr.write('Creating GFF database "' + gffDB + '"\n')
-
-        try:
-            db = gffutils.create_db(args.gff_file, gffDB)
-        except ValueError:      # GFFUtils seems to return ValueError when it cannot find the file!
-            sys.stderr.write(colored("Error: Are you sure '" + args.gff_file + "' is a GFF file?\n"))
-            exit(4)
-        except Exception as e:
-            sys.stderr.write(colored("Error ('" + str(sys.exc_info()[0]) + "'): Could not create GFF database '" + gffDB + "'. Aborting.\n", 'red'))
-            sys.stderr.write(str(e)+'\n')
-            raise
-            exit(1)
+    db = get_gff_database(args.gff_file)
 
     # Store contig lengths in a dictionary
     aLengths = dict()
