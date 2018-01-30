@@ -14,5 +14,5 @@ echo Running petimeter. Test prefix is 't'.
 && echo \
 && ../../petimeter_agreement -c t_details.json t2_details.json \
 && echo "--- Producing plots ---"\
-&& ../../petimeter_plot testplot t_details.json t2_details.json t3_details.json
+&& ../../petimeter_plot --show_counts testplot t_details.json t2_details.json t3_details.json
 
