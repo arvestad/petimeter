@@ -199,13 +199,10 @@ def get_gff_database(gff_filename):
             exit(1)
     return db    
 
-############################################################################################################
-if __name__ == "__main__":
-
-    # Requires python 2.7 or later (due to the dictionary comprehensions?)
-    if sys.version_info[0] < 2 or (sys.version_info[0] >= 2 and sys.version_info[1] < 7):
-        print("This script requires Python version 2.7 or later")
-        sys.exit(1)
+def command_line_arguments():
+    '''
+    Set up parsing of command line arguments. Return the parsed arguments.
+    '''
 
     parser = argparse.ArgumentParser(description='Assess assembly quality using cDNA data.', epilog='Output is given in two files: prefix_assessment.json and prefix_details.json (with "prefix" given by the user as first argument), both in JSON format. The assessment file can be read by petimeter_table and the details file is meant for petimeter_plot and petimeter_agreement.')
     parser.add_argument('prefix', help='Used to create output filenames.')
@@ -215,8 +212,18 @@ if __name__ == "__main__":
     parser.add_argument('-q', '--quiet', action='store_true', help='Do not show progress messages')
     parser.add_argument('-n', '--name', help='Give the test a name. This is useful when later combining several tests together, for example for plotting, when this name is used in the legend. If no name is given, the base name of the assembly file is used.')
     parser.add_argument('-t', '--complete_threshold', action='store', default=min_coverage_for_complete_gene, help='This is how much of a cDNA or CDS should align to the assembly to be counted as complete. Default: ' + str(min_coverage_for_complete_gene))
+    return parser.parse_args()
 
-    args = parser.parse_args()
+############################################################################################################
+if __name__ == "__main__":
+
+    # Requires python 2.7 or later (due to the dictionary comprehensions?)
+    if sys.version_info[0] < 2 or (sys.version_info[0] >= 2 and sys.version_info[1] < 7):
+        print("This script requires Python version 2.7 or later")
+        sys.exit(1)
+
+
+    args = command_line_arguments()
 
     if args.quiet:
         verbose = False
