@@ -12,14 +12,15 @@ import json
 import numpy
 import argparse
 from termcolor import colored
+import traceback
 
 verbose = True
 
 # Constants
-min_coverage_for_complete_gene = 0.95 # Require that 95% of the cDNA is matching the genomic region to be called complete
-utr_overhang_for_complete_cds = 3     # For claiming "CDS complete", we require that there are this many nt from a UTR also matching.
-assessment_format_version = "1.0"       # Noting that this is version 1.0 of the format. Future-proofing! Put in the output file.
-details_format_version = "1.0"          # Noting that this is version 1.0 of the format. Future-proofing! Put in the output file.
+min_coverage_for_complete_gene = 0.95   # Require that 95% of cDNA is matching the genomic region to be called complete
+utr_overhang_for_complete_cds = 3       # For claiming "CDS complete", we require this many nt from a UTR also matching.
+assessment_format_version = "1.0"       # Noting version of format. Future-proofing! Put in the output file.
+details_format_version = "1.0"          # Noting version of format. Future-proofing! Put in the output file.
 
 def collectResults(stats, genesPerContig):
     ''' 
@@ -39,13 +40,13 @@ def collectResults(stats, genesPerContig):
     details['five_prime_extent'] = dict(zip(transcriptnames, fivePrimeExtents))
     results['five_prime_extent'] = descriptives(fivePrimeExtents)
 
-    threePrimeExtents = map(lambda s: s['3prime_extent'], stats)
-    details['three_prime_extent'] = dict(zip(transcriptnames, threePrimeExtents))
-    results['three_prime_extent'] = descriptives(threePrimeExtents)
+    three_prime_extents = map(lambda s: s['3prime_extent'], stats)
+    details['three_prime_extent'] = dict(zip(transcriptnames, three_prime_extents))
+    results['three_prime_extent'] = descriptives(three_prime_extents)
 
-    cDNACoverage = map(lambda s: s['covered'], stats)
-    details['cDNA_coverage'] = dict(zip(transcriptnames, cDNACoverage))
-    results['cDNA_coverage'] = descriptives(cDNACoverage)
+    cdna_coverage = map(lambda s: s['covered'], stats)
+    details['cDNA_coverage'] = dict(zip(transcriptnames, cdna_coverage))
+    results['cDNA_coverage'] = descriptives(cdna_coverage)
 
     results['completeness'] = {}
     results['completeness']['cDNA'] = len(filter(lambda x: x['covered'] > min_coverage_for_complete_gene, stats))
@@ -72,7 +73,13 @@ def descriptives(l):
         }
 
 
-def getStats(db, gene):
+def get_stats(db, gene):
+    """
+    Hmmm.
+    :param db:
+    :param gene:
+    :return:
+    """
     geneName = gene.attributes['Name'][0]
     cdnaLength = cdnaLengths[geneName]
     if not aLengths.get(gene.seqid):
@@ -98,7 +105,7 @@ def getStats(db, gene):
     cdsBoundaries=[]
     for cds in db.children(gene, featuretype='CDS'):
         cdsBoundaries.extend([cds.start, cds.end])
-    
+
     if not cdsBoundaries:                       # No CDS?
         stats['cds_complete'] = False
     elif min(cdsBoundaries) - gene.start < utr_overhang_for_complete_cds: # No 5' UTR in hit
@@ -111,7 +118,7 @@ def getStats(db, gene):
     return stats
 
 
-def matchedLength(db, gene):
+def matched_length(db, gene):
     '''
     Figure out how long the cDNA match is: ignore introns.
     Return the total length of exons for a gene.
@@ -130,14 +137,14 @@ def selectHits(db):
     genes = dict()
     for gene in db.all_features(featuretype='gene'):
         name = gene.attributes['Name'][0]
-        currentLength = matchedLength(db, gene)
+        currentLength = matched_length(db, gene)
         if name in genes:
             oldLength = genes[name][0]
             if currentLength > oldLength: # Update if current gene has longer match
                 genes[name] = (currentLength, gene)
         else:
             genes[name] = (currentLength, gene)
-            
+
     return map(lambda g: g[1], genes.values())
 
 
@@ -153,7 +160,7 @@ def output_files(prefix):
     try:
         oh = open(main_output_file, "w")
         dh = open(plotting_output_file, "w")
-    except: 
+    except:
         stderr.write("Could not open output file ('" + main_output_file + "' and/or '" + plotting_output_file + "') for writing. Aborting.")
         exit(3)
 
@@ -210,7 +217,7 @@ if __name__ == "__main__":
 
     # The gffutils require a SQLite3 database for its operations
     gffDB = args.gff_file + ".sqlite3"
-    
+
     if os.path.isfile(gffDB):   # Ooh, we already have the DB from a previous attempt. Probably.
         if verbose:
             sys.stderr.write(colored('Found pre-existing GFF database: ' + gffDB + '\n', 'green'))
@@ -229,8 +236,10 @@ if __name__ == "__main__":
         except ValueError:      # GFFUtils seems to return ValueError when it cannot find the file!
             sys.stderr.write(colored("Error: Are you sure '" + args.gff_file + "' is a GFF file?\n"))
             exit(4)
-        except:
+        except Exception as e:
             sys.stderr.write(colored("Error ('" + str(sys.exc_info()[0]) + "'): Could not create GFF database '" + gffDB + "'. Aborting.\n", 'red'))
+            sys.stderr.write(str(e)+'\n')
+            raise
             exit(1)
 
     # Store contig lengths in a dictionary
@@ -260,7 +269,7 @@ if __name__ == "__main__":
         fname = os.path.basename(str(inputdata['n_contigs']))
         sys.stderr.write('#contigs/scaffolds in ' + args.assembly_file + ': ' + fname + '\n')
 
-        
+
 
     # We want to count the number of genes per contig. Store a gene->count map in a subclass of dict: Counter
     genesPerContig = Counter()
@@ -271,7 +280,7 @@ if __name__ == "__main__":
     # Go through selected genes and collect statistics
     stats = []
     for gene in genes:
-        stats.append(getStats(db, gene))
+        stats.append(get_stats(db, gene))
         genesPerContig[gene.seqid] += 1
 
     (results, details) = collectResults(stats, genesPerContig)
@@ -287,4 +296,4 @@ if __name__ == "__main__":
     dh.close()
 
 
-    
+
